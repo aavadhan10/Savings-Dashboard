@@ -11,7 +11,7 @@ import PyPDF2
 
 # Page configuration
 st.set_page_config(
-    page_title="Legal AI Automation Dashboard",
+    page_title="AI Savings 2025 Scale Dashboard",
     page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -476,10 +476,28 @@ def main():
     
     # Load data
     try:
-        df = load_data('/mnt/user-data/uploads/activities_2025-10-30_10-21-00.csv')
+        # Try the filename with spaces first (as uploaded)
+        import os
+        csv_path = None
+        
+        # Check for the file with spaces
+        if os.path.exists('/mnt/user-data/uploads/activities 2025-10-30 10-21-00.csv'):
+            csv_path = '/mnt/user-data/uploads/activities 2025-10-30 10-21-00.csv'
+        # Also check for underscore version
+        elif os.path.exists('/mnt/user-data/uploads/activities_2025-10-30_10-21-00.csv'):
+            csv_path = '/mnt/user-data/uploads/activities_2025-10-30_10-21-00.csv'
+        else:
+            # List available files to help debug
+            available_files = os.listdir('/mnt/user-data/uploads/')
+            st.error(f"❌ CSV file not found. Available files: {', '.join(available_files)}")
+            st.info("💡 Please ensure your CSV file is uploaded to /mnt/user-data/uploads/")
+            return
+        
+        df = load_data(csv_path)
         st.sidebar.success(f"✅ Loaded {len(df):,} activities")
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
+        st.info("💡 Make sure your CSV file is in /mnt/user-data/uploads/ directory")
         return
     
     # Filters
@@ -1161,3 +1179,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
