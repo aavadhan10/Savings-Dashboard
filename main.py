@@ -11,7 +11,7 @@ import PyPDF2
 
 # Page configuration
 st.set_page_config(
-    page_title="AI Savings 2025 Scale Dashboard",
+    page_title="Legal AI Automation Dashboard",
     page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -1179,5 +1179,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
