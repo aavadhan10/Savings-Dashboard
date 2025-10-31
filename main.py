@@ -1143,7 +1143,7 @@ def main():
     
     # TAB 4: Predictions
     with tab4:
-        st.header("🔮 2025 Projections & Predictions")
+        st.header("🔮 2026 Projections & Predictions")
         
         # Project full year based on current data
         current_data = filtered_df[filtered_df['Year'] == 2025]
