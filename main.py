@@ -481,11 +481,11 @@ def main():
         csv_path = None
         
         # Check for the file with spaces
-        if os.path.exists('activities 2025-10-30 10-21-00.csv'):
-            csv_path = 'activities 2025-10-30 10-21-00.csv'
+        if os.path.exists('/mnt/user-data/uploads/activities 2025-10-30 10-21-00.csv'):
+            csv_path = '/mnt/user-data/uploads/activities 2025-10-30 10-21-00.csv'
         # Also check for underscore version
-        elif os.path.exists('activities_2025-10-30_10-21-00.csv'):
-            csv_path = 'activities_2025-10-30_10-21-00.csv'
+        elif os.path.exists('/mnt/user-data/uploads/activities_2025-10-30_10-21-00.csv'):
+            csv_path = '/mnt/user-data/uploads/activities_2025-10-30_10-21-00.csv'
         else:
             # List available files to help debug
             available_files = os.listdir('/mnt/user-data/uploads/')
@@ -539,6 +539,72 @@ def main():
     with tab1:
         st.header("Overview Dashboard")
         
+        st.markdown("""
+        ### 🎯 Understanding AI Automation Potential
+        This analysis is based on the **LegalBench framework** - a research-backed benchmark that evaluates 
+        how well AI can perform 162+ specific legal tasks. Each task category has been assigned an automation 
+        potential based on current AI capabilities.
+        """)
+        
+        # Add methodology expander
+        with st.expander("📊 **How We Calculate Your Automation Potential**", expanded=False):
+            st.markdown("""
+            #### Calculation Methodology
+            
+            **Step 1: Task Classification**
+            - We scan each time entry description for specific keywords
+            - Match activities to one of 37 LegalBench task categories
+            - Examples: Contract Review, Legal Research, Document Discovery, etc.
+            
+            **Step 2: Apply Automation Potential**
+            - Each category has a researched automation potential (55%-96%)
+            - Based on LegalBench research and current AI capabilities
+            - Higher % = more suitable for AI assistance
+            
+            **Step 3: Calculate Automatable Hours**
+            ```
+            Automatable Hours = Total Hours × Automation Potential %
+            
+            Example:
+            • Task: Contract Review (92% automation potential)
+            • Time Spent: 100 hours
+            • Automatable: 100 × 0.92 = 92 hours
+            • Manual Oversight: 8 hours
+            ```
+            
+            #### 🤖 What Makes Hours "Automatable"?
+            
+            **High Automation Potential (85-96%):**
+            - ✅ Repetitive tasks (same type of review/analysis)
+            - ✅ Rule-based decisions (clear criteria)
+            - ✅ Pattern matching (finding similar clauses/cases)
+            - ✅ Data extraction (pulling specific information)
+            - ✅ Initial document review and categorization
+            - ✅ Research and citation checking
+            - ✅ Form completion and template population
+            
+            **Examples:**
+            - Contract clause identification (92% automatable)
+            - Legal research and case finding (90% automatable)
+            - Document classification (93% automatable)
+            - Privacy policy review (90% automatable)
+            
+            **Lower Automation Potential (55-70%):**
+            - ⚠️ Strategic decision-making
+            - ⚠️ Creative legal writing
+            - ⚠️ Complex negotiations
+            - ⚠️ Client relationship management
+            - ⚠️ Novel legal arguments
+            
+            #### 💡 Important Notes
+            - "Automatable" means AI can **assist or accelerate** the work
+            - Human oversight and final judgment always required
+            - Automation frees attorneys for higher-value strategic work
+            - Based on 2024-2025 AI capabilities (GPT-4, Claude, etc.)
+            """)
+        
+        st.markdown("---")
+        
         # Key metrics
         col1, col2, col3, col4 = st.columns(4)
         
@@ -555,9 +621,10 @@ def main():
         
         with col2:
             st.metric(
-                label="Automatable Hours",
+                label="AI-Automatable Hours",
                 value=f"{automatable_hours:,.0f}",
-                delta=f"{automation_rate:.1f}% of total"
+                delta=f"{automation_rate:.1f}% of total",
+                help="Hours that could be accelerated with AI assistance"
             )
         
         with col3:
@@ -578,11 +645,168 @@ def main():
         
         st.markdown("---")
         
+        # Add new visualization: Automation potential breakdown
+        st.subheader("💰 What Could Have Been Saved This Year with AI")
+        
+        col1, col2 = st.columns([3, 2])
+        
+        with col1:
+            # Stacked area chart showing potential savings over time
+            monthly_data = filtered_df.groupby(['Year', 'Month', 'Month_Name']).agg({
+                'Hours': 'sum',
+                'Automatable_Hours': 'sum',
+                'Manual_Hours': 'sum'
+            }).reset_index()
+            monthly_data = monthly_data.sort_values(['Year', 'Month'])
+            monthly_data['Period'] = monthly_data['Month_Name'] + ' ' + monthly_data['Year'].astype(str)
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Scatter(
+                x=monthly_data['Period'],
+                y=monthly_data['Automatable_Hours'],
+                name='AI-Automatable',
+                mode='lines',
+                line=dict(width=0.5, color='rgb(34, 139, 34)'),
+                stackgroup='one',
+                fillcolor='rgba(34, 139, 34, 0.6)',
+                hovertemplate='%{y:.0f} automatable hours<extra></extra>'
+            ))
+            
+            fig.add_trace(go.Scatter(
+                x=monthly_data['Period'],
+                y=monthly_data['Manual_Hours'],
+                name='Human-Required',
+                mode='lines',
+                line=dict(width=0.5, color='rgb(255, 140, 0)'),
+                stackgroup='one',
+                fillcolor='rgba(255, 140, 0, 0.6)',
+                hovertemplate='%{y:.0f} manual hours<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title='Monthly Hours: AI-Automatable vs. Human-Required',
+                xaxis_title='Month',
+                yaxis_title='Hours',
+                height=400,
+                hovermode='x unified',
+                showlegend=True
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # Pie chart showing overall split
+            fig = go.Figure(data=[go.Pie(
+                labels=['AI-Automatable Hours', 'Human-Required Hours'],
+                values=[automatable_hours, total_hours - automatable_hours],
+                hole=0.5,
+                marker_colors=['#228B22', '#FF8C00'],
+                textinfo='label+percent',
+                textposition='outside'
+            )])
+            
+            fig.update_layout(
+                title='Overall Work Distribution',
+                height=400,
+                showlegend=False,
+                annotations=[dict(
+                    text=f'{automation_rate:.1f}%<br>Automatable',
+                    x=0.5, y=0.5,
+                    font_size=20,
+                    showarrow=False
+                )]
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # Add automation potential by category (excluding unclassified)
+        st.subheader("📊 Top Automation Opportunities by Task Type")
+        
+        # Filter out unclassified and get top categories
+        category_data = filtered_df[filtered_df['Task_Category'] != 'Unclassified'].groupby('Task_Category').agg({
+            'Hours': 'sum',
+            'Automatable_Hours': 'sum',
+            'Automation_Potential': 'first'
+        }).reset_index()
+        category_data = category_data.sort_values('Automatable_Hours', ascending=False).head(12)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Bar chart of top automatable categories
+            fig = px.bar(
+                category_data,
+                x='Automatable_Hours',
+                y='Task_Category',
+                orientation='h',
+                title='Top 12 Categories by AI-Automatable Hours',
+                labels={'Automatable_Hours': 'AI-Automatable Hours', 'Task_Category': 'Task Category'},
+                color='Automation_Potential',
+                color_continuous_scale='Greens',
+                text='Automatable_Hours'
+            )
+            
+            fig.update_traces(
+                texttemplate='%{text:.0f}h',
+                textposition='outside'
+            )
+            
+            fig.update_layout(
+                height=500,
+                yaxis={'categoryorder': 'total ascending'},
+                xaxis_title='Hours',
+                coloraxis_colorbar=dict(
+                    title="Automation<br>Potential"
+                )
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # Show potential time savings percentage by category
+            category_data['Potential_Savings_Pct'] = category_data['Automation_Potential'] * 100
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                y=category_data['Task_Category'],
+                x=category_data['Hours'],
+                name='Total Hours',
+                orientation='h',
+                marker_color='lightblue',
+                text=category_data['Hours'].round(0),
+                textposition='inside'
+            ))
+            
+            fig.update_layout(
+                title='Total Hours by Category<br><sub>Darker green = higher automation potential</sub>',
+                xaxis_title='Hours',
+                yaxis_title='',
+                height=500,
+                yaxis={'categoryorder': 'total ascending'},
+                showlegend=False
+            )
+            
+            # Add color coding based on automation potential
+            colors = category_data['Automation_Potential'].apply(
+                lambda x: f'rgba(34, 139, 34, {x})' if x > 0.8 else 
+                         f'rgba(255, 165, 0, {x})' if x > 0.7 else 
+                         f'rgba(255, 99, 71, {x})'
+            )
+            fig.data[0].marker.color = colors
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
         # Time series
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("📅 Hours by Month")
+            st.subheader("📅 Monthly Trend Analysis")
             monthly_data = filtered_df.groupby(['Year', 'Month', 'Month_Name']).agg({
                 'Hours': 'sum',
                 'Automatable_Hours': 'sum'
@@ -595,23 +819,28 @@ def main():
                 x=monthly_data['Period'],
                 y=monthly_data['Hours'],
                 name='Total Hours',
-                marker_color='lightblue'
+                marker_color='lightblue',
+                text=monthly_data['Hours'].round(0),
+                textposition='outside'
             ))
             fig.add_trace(go.Bar(
                 x=monthly_data['Period'],
                 y=monthly_data['Automatable_Hours'],
-                name='Automatable Hours',
-                marker_color='darkblue'
+                name='AI-Automatable',
+                marker_color='darkgreen',
+                text=monthly_data['Automatable_Hours'].round(0),
+                textposition='inside'
             ))
             fig.update_layout(
                 barmode='overlay',
                 height=400,
-                hovermode='x unified'
+                hovermode='x unified',
+                xaxis_tickangle=-45
             )
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            st.subheader("🏢 Top 10 Users by Hours")
+            st.subheader("👥 Top 10 Users by Hours")
             user_hours = filtered_df.groupby('User').agg({
                 'Hours': 'sum',
                 'Automatable_Hours': 'sum'
@@ -628,7 +857,7 @@ def main():
             fig.add_trace(go.Bar(
                 y=user_hours['User'],
                 x=user_hours['Automatable_Hours'],
-                name='Automatable',
+                name='AI-Automatable',
                 orientation='h',
                 marker_color='darkred'
             ))
@@ -638,6 +867,41 @@ def main():
                 hovermode='y unified'
             )
             st.plotly_chart(fig, use_container_width=True)
+        
+        # Add potential savings summary box
+        st.markdown("---")
+        st.subheader("💡 Key Insights")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.info(f"""
+            **🤖 AI Could Assist With:**
+            - {automatable_hours:,.0f} hours ({automation_rate:.1f}%)
+            - Equivalent to {automatable_hours/40:.0f} work weeks
+            - Or {automatable_hours/2080:.1f} full-time employees
+            """)
+        
+        with col2:
+            # Calculate average automation rate
+            avg_automation = filtered_df['Automation_Potential'].mean() * 100
+            st.success(f"""
+            **📈 Average Task Automation:**
+            - {avg_automation:.1f}% automation potential
+            - Based on {len(filtered_df):,} time entries
+            - Across {unique_matters:,} matters
+            """)
+        
+        with col3:
+            # Get highest automation category
+            top_category = category_data.iloc[0]
+            st.warning(f"""
+            **🎯 Top Opportunity:**
+            - **{top_category['Task_Category']}**
+            - {top_category['Automatable_Hours']:.0f} automatable hours
+            - {top_category['Automation_Potential']*100:.0f}% automation potential
+            """)
+
     
     # TAB 2: Automation Analysis
     with tab2:
