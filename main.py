@@ -11,7 +11,7 @@ import PyPDF2
 
 # Page configuration
 st.set_page_config(
-    page_title="Legal AI Automation Dashboard",
+    page_title="Scale Legal AI Automation Dashboard",
     page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -347,6 +347,131 @@ LEGALBENCH_TASKS = {
     }
 }
 
+# OLI BENCHMARK - Scale Law Firm's Custom Automation Estimates
+# Based on real-world assessment of AI capabilities for specific legal tasks
+OLI_BENCHMARK_TASKS = {
+    '100% AI Replaceable - NDAs & Standard Agreements': {
+        'automation_potential': 1.00,
+        'keywords': [
+            'nda', 'non-disclosure agreement', 'non disclosure agreement', 'non disclosure',
+            'msa', 'master service agreement',
+            'confidentiality agreement',
+            'employment agreement',
+            'consultation agreement', 'consulting agreement', 'contractor agreement',
+            'vendor agreement',
+            '1099 agreement',
+            'lease agreement', 'leases',
+            'licensing agreement',
+            'procurement agreement',
+            'commercial contract',
+            'promissory note',
+            'release',
+            'order', 'orders', 'court orders',
+            'advisor agreement',
+            'ip assignment', 'assignment', 'ip agreement',
+            'convertible note',
+            'hold letter',
+            'termination letter'
+        ],
+        'description': 'Standard contract drafting, review, and analysis - highly templated work',
+        'examples': ['NDA drafting', 'MSA review', 'Employment agreement preparation']
+    },
+    '100% AI Replaceable - Document Search': {
+        'automation_potential': 1.00,
+        'keywords': [
+            'searching for document', 'search for document', 'find document', 'locate document',
+            'document search', 'retrieve document'
+        ],
+        'description': 'Document search and retrieval tasks',
+        'examples': ['Finding contracts', 'Locating agreements', 'Document retrieval']
+    },
+    '70% AI Replaceable - Legal Research & Analysis': {
+        'automation_potential': 0.70,
+        'keywords': [
+            'search case law', 'case law research', 'case search',
+            'interpret bill', 'interpret statute', 'interpret law', 'interpret ordinance', 'interpret regulations',
+            'statute interpretation', 'statutory analysis',
+            'discovery requests', 'discovery', 'written discovery', 'document production'
+        ],
+        'description': 'Legal research, statutory interpretation, and discovery work',
+        'examples': ['Case law research', 'Bill interpretation', 'Discovery requests']
+    },
+    '30% AI Replaceable - Complex Agreements': {
+        'automation_potential': 0.30,
+        'keywords': [
+            'drafting memo', 'memorandum', 'draft memo',
+            'loan document', 'loan agreement',
+            'saas agreement', 'software agreement',
+            'ecommerce agreement',
+            'agreement of purchase and sale', 'purchase agreement',
+            'settlement agreement',
+            'trademark office actions', 'trademark response', 'trademark application',
+            'patent office actions', 'patent office responses', 'patent application',
+            'closing documents', 'transaction',
+            'financing documents', 'finance',
+            'motion', 'notice of motion', 'draft motion',
+            'complaints', 'answer to complaint', 'claim',
+            'reseller agreement',
+            'referral agreement',
+            'term sheet', 'term agreement',
+            'sales representative agreement',
+            'option agreement',
+            'opinion', 'legal opinion',
+            'click agreement'
+        ],
+        'description': 'Complex agreements and documents requiring more judgment',
+        'examples': ['Loan documents', 'Settlement agreements', 'Patent responses']
+    },
+    '20% AI Replaceable - General Drafting': {
+        'automation_potential': 0.20,
+        'keywords': [
+            'draft email', 'draft letter', 'draft amendments', 'draft subscription agreement',
+            'draft update', 'drafting', 'prepare',
+            'email', 'response to', 'respond to', 'communication', 'correspondence'
+        ],
+        'description': 'General drafting and communications - requires significant human input',
+        'examples': ['Email drafting', 'Letter preparation', 'General correspondence']
+    },
+    '0% AI Replaceable - Strategic Work': {
+        'automation_potential': 0.00,
+        'keywords': [
+            'strategy', 'confer', 'spoke with', 'conference call', 'attended',
+            'meeting', 'discussion', 'call with', 'spoke to', 'consultation',
+            'advise', 'counseling', 'negotiate', 'negotiation'
+        ],
+        'description': 'Strategic work, client communications, and relationship management',
+        'examples': ['Strategy sessions', 'Client meetings', 'Negotiations']
+    }
+}
+
+def classify_task_oli(description):
+    """Classify a task description using OLI Benchmark"""
+    if pd.isna(description):
+        return 'Unclassified', 0.0
+    
+    description_lower = description.lower()
+    
+    # Check for strategic work first (0% automation)
+    strategic_keywords = OLI_BENCHMARK_TASKS['0% AI Replaceable - Strategic Work']['keywords']
+    if any(keyword in description_lower for keyword in strategic_keywords):
+        return '0% AI Replaceable - Strategic Work', 0.0
+    
+    # Score each category
+    scores = {}
+    for category, info in OLI_BENCHMARK_TASKS.items():
+        if category == '0% AI Replaceable - Strategic Work':
+            continue
+        score = sum(1 for keyword in info['keywords'] if keyword in description_lower)
+        if score > 0:
+            scores[category] = score
+    
+    if scores:
+        best_category = max(scores, key=scores.get)
+        automation_potential = OLI_BENCHMARK_TASKS[best_category]['automation_potential']
+        return best_category, automation_potential
+    else:
+        return 'Unclassified', 0.0
+
 @st.cache_data
 def load_data(csv_path):
     """Load and preprocess the CSV data"""
@@ -461,7 +586,7 @@ def main():
     if not check_password():
         return
     
-    st.markdown('<h1 class="main-header">⚖️ Legal AI Automation Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">⚖️ Scale Legal AI Automation Dashboard</h1>', unsafe_allow_html=True)
     st.markdown("### Scale Law Firm - AI-Powered Efficiency Analysis")
     
     # Sidebar with logout option
@@ -481,11 +606,11 @@ def main():
         csv_path = None
         
         # Check for the file with spaces
-        if os.path.exists('activities 2025-10-30 10-21-00.csv'):
-            csv_path = 'activities 2025-10-30 10-21-00.csv'
+        if os.path.exists('/mnt/user-data/uploads/activities 2025-10-30 10-21-00.csv'):
+            csv_path = '/mnt/user-data/uploads/activities 2025-10-30 10-21-00.csv'
         # Also check for underscore version
-        elif os.path.exists('activities_2025-10-30_10-21-00.csv'):
-            csv_path = 'activities_2025-10-30_10-21-00.csv'
+        elif os.path.exists('/mnt/user-data/uploads/activities_2025-10-30_10-21-00.csv'):
+            csv_path = '/mnt/user-data/uploads/activities_2025-10-30_10-21-00.csv'
         else:
             # List available files to help debug
             available_files = os.listdir('/mnt/user-data/uploads/')
@@ -494,7 +619,17 @@ def main():
             return
         
         df = load_data(csv_path)
+        
+        # Handle flat fee entries - count them as 1 hour
+        df['Original_Hours'] = df['Hours'].copy()
+        df.loc[df['Flat rate'] == 'true', 'Hours'] = 1.0
+        
         st.sidebar.success(f"✅ Loaded {len(df):,} activities")
+        
+        # Show flat fee info
+        flat_fee_count = (df['Flat rate'] == 'true').sum()
+        if flat_fee_count > 0:
+            st.sidebar.info(f"ℹ️ {flat_fee_count:,} flat fee entries counted as 1 hour each")
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         st.info("💡 Make sure your CSV file is in /mnt/user-data/uploads/ directory")
@@ -527,8 +662,9 @@ def main():
     filtered_df['Manual_Hours'] = filtered_df['Hours'] - filtered_df['Automatable_Hours']
     
     # Main tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📈 Overview", 
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "📈 Overview (LegalBench)", 
+        "🎯 OLI Benchmark",
         "🤖 Automation Analysis", 
         "💰 Cost Savings", 
         "🔮 Predictions",
@@ -544,6 +680,8 @@ def main():
         This analysis is based on the **LegalBench framework** - a research-backed benchmark that evaluates 
         how well AI can perform 162+ specific legal tasks. Each task category has been assigned an automation 
         potential based on current AI capabilities.
+        
+        **Note:** *Flat fee entries are counted as 1 hour for analysis purposes.*
         """)
         
         # Add methodology expander
@@ -903,8 +1041,371 @@ def main():
             """)
 
     
-    # TAB 2: Automation Analysis
+    # TAB 2: OLI BENCHMARK
     with tab2:
+        st.header("🎯 OLI Benchmark - Scale Law Firm's Custom Analysis")
+        
+        st.markdown("""
+        ### 📊 Scale Law Firm's AI Automation Estimates
+        This tab uses **OLI Benchmark** - Scale Law Firm's proprietary assessment of which legal tasks 
+        can be automated with AI. Unlike the LegalBench academic framework, this reflects your firm's 
+        real-world experience and specific task categorization.
+        
+        **Note:** *Flat fee entries are counted as 1 hour for analysis purposes.*
+        """)
+        
+        # Classify using OLI Benchmark
+        with st.spinner("🤖 Analyzing tasks using OLI Benchmark..."):
+            filtered_df[['OLI_Category', 'OLI_Automation_Potential']] = filtered_df['Description'].apply(
+                lambda x: pd.Series(classify_task_oli(x))
+            )
+        
+        # Calculate OLI automatable hours
+        filtered_df['OLI_Automatable_Hours'] = filtered_df['Hours'] * filtered_df['OLI_Automation_Potential']
+        filtered_df['OLI_Manual_Hours'] = filtered_df['Hours'] - filtered_df['OLI_Automatable_Hours']
+        
+        # OLI Methodology explanation
+        with st.expander("📋 **OLI Benchmark Categories & Methodology**", expanded=False):
+            st.markdown("""
+            ### OLI Benchmark Classification
+            
+            Scale Law Firm has identified **6 automation tiers** based on task complexity and AI readiness:
+            
+            #### 🟢 100% AI Replaceable
+            **Standard Contracts & Documents:**
+            - NDAs, MSAs, Employment Agreements
+            - Consultation/Contractor Agreements
+            - Vendor & 1099 Agreements
+            - Lease & Licensing Agreements
+            - IP Assignments, Convertible Notes
+            - Promissory Notes, Releases
+            - Court Orders, Hold Letters
+            - **Document Search Tasks**
+            
+            *These are highly templated tasks where AI can handle the entire workflow with minimal oversight.*
+            
+            #### 🟡 70% AI Replaceable
+            **Legal Research & Discovery:**
+            - Case Law Research
+            - Statutory Interpretation
+            - Bill/Regulation Analysis
+            - Discovery Requests
+            - Written Discovery
+            
+            *AI excels at research but requires human verification and strategic thinking.*
+            
+            #### 🟠 30% AI Replaceable
+            **Complex Agreements:**
+            - Loan Documents, SaaS Agreements
+            - Settlement Agreements
+            - Patent/Trademark Office Actions
+            - Closing & Financing Documents
+            - Motions, Complaints, Answers
+            - Term Sheets, Legal Opinions
+            - Purchase & Sale Agreements
+            
+            *Requires significant human judgment but AI can assist with drafting and analysis.*
+            
+            #### 🔴 20% AI Replaceable
+            **General Drafting & Communications:**
+            - Email Drafting & Responses
+            - Letters & Amendments
+            - General Correspondence
+            - Updates & Communications
+            
+            *Highly contextual and relationship-focused work.*
+            
+            #### ⚫ 0% AI Replaceable
+            **Strategic & Relationship Work:**
+            - Strategy Sessions
+            - Client Conferences
+            - Negotiations
+            - Meetings & Consultations
+            - Any task with: "strategy", "confer", "spoke with", "conference call", "attended"
+            
+            *Pure human work requiring judgment, relationships, and strategic thinking.*
+            
+            ### Calculation Method
+            ```
+            OLI Automatable Hours = Total Hours × OLI Automation %
+            
+            Example:
+            • Task: NDA Review (100% OLI automation)
+            • Time Spent: 10 hours
+            • Automatable: 10 × 1.00 = 10 hours (fully automatable)
+            • Manual Oversight: 0 hours
+            ```
+            """)
+        
+        st.markdown("---")
+        
+        # OLI Key metrics
+        st.subheader("📈 OLI Benchmark Metrics")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        oli_total_hours = filtered_df['Hours'].sum()
+        oli_automatable = filtered_df['OLI_Automatable_Hours'].sum()
+        oli_automation_rate = (oli_automatable / oli_total_hours * 100) if oli_total_hours > 0 else 0
+        oli_manual = filtered_df['OLI_Manual_Hours'].sum()
+        
+        with col1:
+            st.metric(
+                label="Total Hours Analyzed",
+                value=f"{oli_total_hours:,.0f}",
+                help="Total hours using OLI classification"
+            )
+            st.caption("📊 All activities reviewed")
+        
+        with col2:
+            st.metric(
+                label="OLI AI-Automatable",
+                value=f"{oli_automatable:,.0f}",
+                delta=f"{oli_automation_rate:.1f}% of total",
+                help="Hours automatable per Scale Law Firm's assessment"
+            )
+            st.caption("🤖 OLI automation potential")
+        
+        with col3:
+            st.metric(
+                label="Human-Required Hours",
+                value=f"{oli_manual:,.0f}",
+                delta=f"{(oli_manual/oli_total_hours*100):.1f}% of total",
+                delta_color="inverse",
+                help="Hours requiring human expertise"
+            )
+            st.caption("👨‍⚖️ Strategic human work")
+        
+        with col4:
+            # Calculate potential savings at $500/hour
+            potential_savings = oli_automatable * 0.60 * 500  # 60% efficiency gain
+            st.metric(
+                label="Potential Annual Savings",
+                value=f"${potential_savings:,.0f}",
+                help="At 60% efficiency gain, $500/hour"
+            )
+            st.caption("💰 Estimated savings")
+        
+        st.markdown("---")
+        
+        # OLI Breakdown visualization
+        st.subheader("💰 What Could Have Been Saved (OLI Benchmark)")
+        
+        col1, col2 = st.columns([3, 2])
+        
+        with col1:
+            # OLI Monthly trend
+            oli_monthly = filtered_df.groupby(['Year', 'Month', 'Month_Name']).agg({
+                'Hours': 'sum',
+                'OLI_Automatable_Hours': 'sum',
+                'OLI_Manual_Hours': 'sum'
+            }).reset_index()
+            oli_monthly = oli_monthly.sort_values(['Year', 'Month'])
+            oli_monthly['Period'] = oli_monthly['Month_Name'] + ' ' + oli_monthly['Year'].astype(str)
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Scatter(
+                x=oli_monthly['Period'],
+                y=oli_monthly['OLI_Automatable_Hours'],
+                name='AI-Automatable (OLI)',
+                mode='lines',
+                line=dict(width=0.5, color='rgb(0, 128, 0)'),
+                stackgroup='one',
+                fillcolor='rgba(0, 128, 0, 0.7)',
+                hovertemplate='%{y:.0f} automatable hours<extra></extra>'
+            ))
+            
+            fig.add_trace(go.Scatter(
+                x=oli_monthly['Period'],
+                y=oli_monthly['OLI_Manual_Hours'],
+                name='Human-Required',
+                mode='lines',
+                line=dict(width=0.5, color='rgb(220, 20, 60)'),
+                stackgroup='one',
+                fillcolor='rgba(220, 20, 60, 0.7)',
+                hovertemplate='%{y:.0f} manual hours<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title='OLI Benchmark: Monthly Hours Distribution',
+                xaxis_title='Month',
+                yaxis_title='Hours',
+                height=400,
+                hovermode='x unified',
+                showlegend=True
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # OLI Donut chart
+            fig = go.Figure(data=[go.Pie(
+                labels=['AI-Automatable (OLI)', 'Human-Required'],
+                values=[oli_automatable, oli_manual],
+                hole=0.5,
+                marker_colors=['#008000', '#DC143C'],
+                textinfo='label+percent',
+                textposition='outside'
+            )])
+            
+            fig.update_layout(
+                title='OLI Work Distribution',
+                height=400,
+                showlegend=False,
+                annotations=[dict(
+                    text=f'{oli_automation_rate:.1f}%<br>Automatable',
+                    x=0.5, y=0.5,
+                    font_size=20,
+                    showarrow=False
+                )]
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # OLI Category breakdown
+        st.subheader("📊 OLI Benchmark: Hours by Automation Tier")
+        
+        # Group by OLI categories (exclude Unclassified)
+        oli_category_data = filtered_df[filtered_df['OLI_Category'] != 'Unclassified'].groupby('OLI_Category').agg({
+            'Hours': 'sum',
+            'OLI_Automatable_Hours': 'sum',
+            'OLI_Automation_Potential': 'first'
+        }).reset_index()
+        
+        # Sort by automation potential descending
+        oli_category_data = oli_category_data.sort_values('OLI_Automation_Potential', ascending=False)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Horizontal bar chart by category
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                y=oli_category_data['OLI_Category'],
+                x=oli_category_data['Hours'],
+                name='Total Hours',
+                orientation='h',
+                marker_color='lightblue',
+                text=oli_category_data['Hours'].round(0),
+                textposition='inside'
+            ))
+            
+            fig.add_trace(go.Bar(
+                y=oli_category_data['OLI_Category'],
+                x=oli_category_data['OLI_Automatable_Hours'],
+                name='Automatable',
+                orientation='h',
+                marker_color='darkgreen',
+                text=oli_category_data['OLI_Automatable_Hours'].round(0),
+                textposition='inside'
+            ))
+            
+            fig.update_layout(
+                title='Hours by OLI Category',
+                xaxis_title='Hours',
+                height=450,
+                barmode='overlay',
+                yaxis={'categoryorder': 'array', 'categoryarray': oli_category_data['OLI_Category'].tolist()}
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # Show automation % for each tier
+            fig = px.bar(
+                oli_category_data,
+                y='OLI_Category',
+                x='OLI_Automatable_Hours',
+                orientation='h',
+                title='Automatable Hours by Tier',
+                labels={'OLI_Automatable_Hours': 'Automatable Hours'},
+                color='OLI_Automation_Potential',
+                color_continuous_scale='RdYlGn',
+                text='OLI_Automatable_Hours'
+            )
+            
+            fig.update_traces(
+                texttemplate='%{text:.0f}h',
+                textposition='outside'
+            )
+            
+            fig.update_layout(
+                height=450,
+                yaxis={'categoryorder': 'array', 'categoryarray': oli_category_data['OLI_Category'].tolist()},
+                coloraxis_colorbar=dict(
+                    title="Automation<br>%"
+                )
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # Top matters for automation (OLI)
+        st.subheader("🎯 Top Matters for AI Implementation (OLI Benchmark)")
+        
+        oli_matter_analysis = filtered_df[filtered_df['OLI_Category'] != 'Unclassified'].groupby('Matter description').agg({
+            'Hours': 'sum',
+            'OLI_Automatable_Hours': 'sum'
+        }).reset_index()
+        oli_matter_analysis['OLI_Automation_Rate'] = (
+            oli_matter_analysis['OLI_Automatable_Hours'] / oli_matter_analysis['Hours'] * 100
+        )
+        oli_matter_analysis = oli_matter_analysis.sort_values('OLI_Automatable_Hours', ascending=False).head(15)
+        
+        st.dataframe(
+            oli_matter_analysis.style.format({
+                'Hours': '{:.1f}',
+                'OLI_Automatable_Hours': '{:.1f}',
+                'OLI_Automation_Rate': '{:.1f}%'
+            }).background_gradient(subset=['OLI_Automatable_Hours'], cmap='Greens'),
+            use_container_width=True,
+            height=400
+        )
+        
+        st.markdown("---")
+        
+        # OLI Key Insights
+        st.subheader("💡 OLI Benchmark Key Insights")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Find 100% automatable hours
+            full_auto = filtered_df[filtered_df['OLI_Automation_Potential'] == 1.0]['Hours'].sum()
+            st.success(f"""
+            **🟢 100% Automatable:**
+            - {full_auto:,.0f} hours
+            - Standard contracts & docs
+            - Immediate AI deployment ready
+            """)
+        
+        with col2:
+            # Find 70% automatable (research)
+            research_auto = filtered_df[filtered_df['OLI_Automation_Potential'] == 0.7]['Hours'].sum()
+            st.info(f"""
+            **🟡 70% Automatable:**
+            - {research_auto:,.0f} hours
+            - Legal research & discovery
+            - High-value AI assistance
+            """)
+        
+        with col3:
+            # Find strategic work (0%)
+            strategic = filtered_df[filtered_df['OLI_Automation_Potential'] == 0.0]['Hours'].sum()
+            st.warning(f"""
+            **⚫ Strategic Work (0%):**
+            - {strategic:,.0f} hours
+            - Client relationships
+            - Stays human-led
+            """)
+    
+    # TAB 3: Automation Analysis
+    with tab6:
         st.header("🤖 AI Automation Analysis")
         
         col1, col2 = st.columns([2, 1])
@@ -983,8 +1484,8 @@ def main():
         fig.update_layout(height=600)
         st.plotly_chart(fig, use_container_width=True)
     
-    # TAB 3: Cost Savings
-    with tab3:
+    # TAB 4: Cost Savings
+    with tab6:
         st.header("💰 Potential Cost Savings with AI")
         
         # Assumptions
@@ -1141,9 +1642,9 @@ def main():
             height=400
         )
     
-    # TAB 4: Predictions
-    with tab4:
-        st.header("🔮 2026 Projections & Predictions")
+    # TAB 5: Predictions
+    with tab6:
+        st.header("🔮 2025 Projections & Predictions")
         
         # Project full year based on current data
         current_data = filtered_df[filtered_df['Year'] == 2025]
@@ -1367,8 +1868,8 @@ def main():
         else:
             st.warning("No 2025 data available for projections")
     
-    # TAB 5: Task Definitions
-    with tab5:
+    # TAB 6: Task Definitions
+    with tab6:
         st.header("📚 LegalBench Task Definitions")
         st.markdown("""
         Based on the **LegalBench: A Collaboratively Built Benchmark for Measuring Legal Reasoning 
