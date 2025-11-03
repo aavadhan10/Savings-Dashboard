@@ -606,11 +606,11 @@ def main():
         csv_path = None
         
         # Check for the file with spaces
-        if os.path.exists('/mnt/user-data/uploads/activities 2025-10-30 10-21-00.csv'):
-            csv_path = '/mnt/user-data/uploads/activities 2025-10-30 10-21-00.csv'
+        if os.path.exists('activities 2025-10-30 10-21-00.csv'):
+            csv_path = 'activities 2025-10-30 10-21-00.csv'
         # Also check for underscore version
-        elif os.path.exists('/mnt/user-data/uploads/activities_2025-10-30_10-21-00.csv'):
-            csv_path = '/mnt/user-data/uploads/activities_2025-10-30_10-21-00.csv'
+        elif os.path.exists('activities_2025-10-30_10-21-00.csv'):
+            csv_path = 'activities_2025-10-30_10-21-00.csv'
         else:
             # List available files to help debug
             available_files = os.listdir('/mnt/user-data/uploads/')
