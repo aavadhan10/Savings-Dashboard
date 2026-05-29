@@ -1448,7 +1448,7 @@ def main():
             """)
     
     # TAB 3: Automation Analysis
-    with tab6:
+    with tab3:
         st.header("🤖 AI Automation Analysis")
         
         col1, col2 = st.columns([2, 1])
@@ -1528,7 +1528,7 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
     
     # TAB 4: Cost Savings
-    with tab6:
+    with tab4:
         st.header("💰 Potential Cost Savings with AI")
         
         # Assumptions
@@ -1686,7 +1686,7 @@ def main():
         )
     
     # TAB 5: Predictions
-    with tab6:
+    with tab5:
         st.header("🔮 Year Projections & Predictions")
 
         # Let the user pick which year to project
