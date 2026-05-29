@@ -473,25 +473,38 @@ def classify_task_oli(description):
         return 'Unclassified', 0.0
 
 @st.cache_data
-def load_data(csv_path):
-    """Load and preprocess the CSV data"""
-    df = pd.read_csv(csv_path, encoding='utf-8-sig')
-    
+def load_data(csv_paths: tuple):
+    """Load and preprocess one or more CSV files, deduplicating by ID."""
+    frames = []
+    for path in csv_paths:
+        try:
+            part = pd.read_csv(path, encoding='utf-8-sig', low_memory=False)
+            frames.append(part)
+        except Exception as e:
+            st.warning(f"Could not load {path}: {e}")
+
+    if not frames:
+        return pd.DataFrame()
+
+    df = pd.concat(frames, ignore_index=True)
+
+    # Deduplicate by ID to handle any overlap between exports
+    if 'ID' in df.columns:
+        df = df.drop_duplicates(subset='ID', keep='last')
+
     # Convert date to datetime
     df['Date'] = pd.to_datetime(df['Date'], format='%m/%d/%Y', errors='coerce')
-    
+
     # Convert hours to numeric
     df['Hours'] = pd.to_numeric(df['Hours'], errors='coerce')
-    
-    # Fill NaN hours with 0
     df['Hours'] = df['Hours'].fillna(0)
-    
+
     # Extract year and month
     df['Year'] = df['Date'].dt.year
     df['Month'] = df['Date'].dt.month
     df['Month_Name'] = df['Date'].dt.strftime('%B')
     df['Quarter'] = df['Date'].dt.quarter
-    
+
     return df
 
 def classify_task(description):
@@ -601,51 +614,81 @@ def main():
     
     # Load data
     try:
-        # Try the filename with spaces first (as uploaded)
-        import os
-        csv_path = None
-        
-        # Check for the file with spaces
-        if os.path.exists('activities 2025-10-30 10-21-00.csv'):
-            csv_path = 'activities 2025-10-30 10-21-00.csv'
-        # Also check for underscore version
-        elif os.path.exists('activities_2025-10-30_10-21-00.csv'):
-            csv_path = 'activities_2025-10-30_10-21-00.csv'
-        else:
-            # List available files to help debug
-            available_files = os.listdir('/mnt/user-data/uploads/')
-            st.error(f"❌ CSV file not found. Available files: {', '.join(available_files)}")
-            st.info("💡 Please ensure your CSV file is uploaded to /mnt/user-data/uploads/")
+        import os, glob
+
+        # Candidate filenames – both the specific names and any wildcard matches
+        CANDIDATE_NAMES = [
+            'activities 2025-10-30 10-21-00.csv',
+            'activities_2025-10-30_10-21-00.csv',
+            'activities 2026-05-29 09-05-03.csv',
+            'activities_2026-05-29_09-05-03.csv',
+        ]
+
+        # Search in repo root, then /mnt/user-data/uploads/ (Streamlit Cloud)
+        search_dirs = ['.', '/mnt/user-data/uploads']
+
+        found_paths = []
+        for search_dir in search_dirs:
+            for name in CANDIDATE_NAMES:
+                candidate = os.path.join(search_dir, name)
+                if os.path.exists(candidate) and candidate not in found_paths:
+                    found_paths.append(candidate)
+            # Also pick up any future exports matching the pattern
+            for pattern in ['activities *.csv', 'activities_*.csv']:
+                for match in glob.glob(os.path.join(search_dir, pattern)):
+                    if match not in found_paths:
+                        found_paths.append(match)
+
+        if not found_paths:
+            try:
+                available = os.listdir('/mnt/user-data/uploads/')
+            except Exception:
+                available = os.listdir('.')
+            st.error(f"❌ No activities CSV file found. Available files: {', '.join(available)}")
+            st.info("💡 Ensure the CSV files are in the repository or uploaded to /mnt/user-data/uploads/")
             return
-        
-        df = load_data(csv_path)
-        
-        # Handle flat fee entries - count them as 1 hour
+
+        df = load_data(tuple(sorted(set(found_paths))))
+
+        # Handle flat fee entries – count them as 1 hour
         df['Original_Hours'] = df['Hours'].copy()
-        df.loc[df['Flat rate'] == 'true', 'Hours'] = 1.0
-        
-        st.sidebar.success(f"✅ Loaded {len(df):,} activities")
-        
-        # Show flat fee info
-        flat_fee_count = (df['Flat rate'] == 'true').sum()
+        df.loc[df['Flat rate'].astype(str).str.lower() == 'true', 'Hours'] = 1.0
+
+        st.sidebar.success(f"✅ Loaded {len(df):,} activities from {len(found_paths)} file(s)")
+
+        flat_fee_count = (df['Flat rate'].astype(str).str.lower() == 'true').sum()
         if flat_fee_count > 0:
             st.sidebar.info(f"ℹ️ {flat_fee_count:,} flat fee entries counted as 1 hour each")
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
-        st.info("💡 Make sure your CSV file is in /mnt/user-data/uploads/ directory")
+        st.info("💡 Make sure your CSV files are in the repository root or /mnt/user-data/uploads/ directory")
         return
     
     # Filters
     st.sidebar.subheader("🔍 Filters")
-    
-    # Year filter
-    years = sorted(df['Year'].dropna().unique())
-    selected_years = st.sidebar.multiselect("Select Years", years, default=years)
-    
+
+    # Year filter – show each year as a labeled checkbox for clarity
+    available_years = sorted(df['Year'].dropna().astype(int).unique())
+    st.sidebar.markdown("**Select Year(s)**")
+    selected_years = []
+    for yr in available_years:
+        row_count = int((df['Year'] == yr).sum())
+        checked = st.sidebar.checkbox(
+            f"{yr}  ({row_count:,} entries)",
+            value=True,
+            key=f"year_{yr}"
+        )
+        if checked:
+            selected_years.append(yr)
+
+    if not selected_years:
+        st.sidebar.warning("⚠️ Select at least one year.")
+        selected_years = available_years  # fall back to all
+
     # User filter
     users = sorted(df['User'].dropna().unique())
     selected_users = st.sidebar.multiselect("Select Users", users, default=[])
-    
+
     # Apply filters
     filtered_df = df[df['Year'].isin(selected_years)]
     if selected_users:
@@ -1644,72 +1687,84 @@ def main():
     
     # TAB 5: Predictions
     with tab6:
-        st.header("🔮 2025 Projections & Predictions")
-        
-        # Project full year based on current data
-        current_data = filtered_df[filtered_df['Year'] == 2025]
-        
+        st.header("🔮 Year Projections & Predictions")
+
+        # Let the user pick which year to project
+        proj_years_available = sorted(filtered_df['Year'].dropna().astype(int).unique())
+        proj_year = st.selectbox(
+            "Select year to project",
+            options=proj_years_available,
+            index=len(proj_years_available) - 1,  # default to most recent
+            key="proj_year_select"
+        )
+
+        st.markdown(f"Projecting full-year figures for **{proj_year}** based on available data.")
+
+        # Project full year based on selected year's data
+        current_data = filtered_df[filtered_df['Year'] == proj_year]
+
         if len(current_data) > 0:
             # Get latest month with data
-            latest_month = current_data['Month'].max()
-            
+            latest_month = int(current_data['Month'].max())
+
             # Calculate monthly averages
             monthly_avg = current_data.groupby('Month').agg({
                 'Hours': 'sum',
                 'Automatable_Hours': 'sum'
             }).mean()
-            
+
             # Project for remaining months
             months_elapsed = latest_month
             months_remaining = 12 - months_elapsed
-            
-            projected_total_hours = (current_data['Hours'].sum() + 
+
+            projected_total_hours = (current_data['Hours'].sum() +
                                     monthly_avg['Hours'] * months_remaining)
-            projected_automatable_hours = (current_data['Automatable_Hours'].sum() + 
+            projected_automatable_hours = (current_data['Automatable_Hours'].sum() +
                                           monthly_avg['Automatable_Hours'] * months_remaining)
-            
+
             # Display projections
             col1, col2, col3 = st.columns(3)
-            
+
             with col1:
+                label_suffix = "Full Year" if months_remaining == 0 else f"+{months_remaining} mo. projected"
                 st.metric(
-                    label="Projected Total Hours (2025)",
+                    label=f"Projected Total Hours ({proj_year})",
                     value=f"{projected_total_hours:,.0f}",
-                    delta=f"+{months_remaining} months projected"
+                    delta=label_suffix
                 )
-            
+
             with col2:
                 st.metric(
                     label="Projected Automatable Hours",
                     value=f"{projected_automatable_hours:,.0f}",
                     delta=f"{(projected_automatable_hours/projected_total_hours*100):.1f}%"
                 )
-            
+
             with col3:
                 projected_savings = projected_automatable_hours * ai_efficiency_gain * avg_hourly_rate
                 st.metric(
                     label="Projected Annual Savings",
                     value=f"${projected_savings:,.0f}"
                 )
-            
+
             st.markdown("---")
-            
+
             # Projection chart
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 st.subheader("📊 Monthly Projection")
-                
+
                 # Create projection data
                 actual_monthly = current_data.groupby('Month').agg({
                     'Hours': 'sum',
                     'Automatable_Hours': 'sum'
                 }).reset_index()
-                
+
                 # Create full year projection
                 all_months = pd.DataFrame({'Month': range(1, 13)})
                 projection_df = all_months.merge(actual_monthly, on='Month', how='left')
-                
+
                 # Fill projected values
                 projection_df['Hours'] = projection_df['Hours'].fillna(monthly_avg['Hours'])
                 projection_df['Automatable_Hours'] = projection_df['Automatable_Hours'].fillna(
@@ -1718,9 +1773,9 @@ def main():
                 projection_df['Type'] = projection_df['Month'].apply(
                     lambda x: 'Actual' if x <= months_elapsed else 'Projected'
                 )
-                
+
                 fig = go.Figure()
-                
+
                 # Actual data
                 actual = projection_df[projection_df['Type'] == 'Actual']
                 fig.add_trace(go.Bar(
@@ -1735,7 +1790,7 @@ def main():
                     name='Actual Automatable',
                     marker_color='darkblue'
                 ))
-                
+
                 # Projected data
                 projected = projection_df[projection_df['Type'] == 'Projected']
                 fig.add_trace(go.Bar(
@@ -1752,26 +1807,26 @@ def main():
                     marker_color='darkred',
                     opacity=0.6
                 ))
-                
+
                 fig.update_layout(
-                    title='2025 Monthly Hours Projection',
+                    title=f'{proj_year} Monthly Hours Projection',
                     xaxis_title='Month',
                     yaxis_title='Hours',
                     barmode='group',
                     height=400
                 )
                 st.plotly_chart(fig, use_container_width=True)
-            
+
             with col2:
                 st.subheader("💰 Cumulative Savings Projection")
-                
+
                 projection_df['Monthly_Savings'] = (
                     projection_df['Automatable_Hours'] * ai_efficiency_gain * avg_hourly_rate
                 )
                 projection_df['Cumulative_Savings'] = projection_df['Monthly_Savings'].cumsum()
-                
+
                 fig = go.Figure()
-                
+
                 # Actual cumulative
                 actual_cum = projection_df[projection_df['Type'] == 'Actual']
                 fig.add_trace(go.Scatter(
@@ -1782,7 +1837,7 @@ def main():
                     line=dict(color='green', width=3),
                     fill='tozeroy'
                 ))
-                
+
                 # Projected cumulative
                 fig.add_trace(go.Scatter(
                     x=projection_df['Month'],
@@ -1793,7 +1848,7 @@ def main():
                     fill='tozeroy',
                     opacity=0.5
                 ))
-                
+
                 fig.update_layout(
                     title='Cumulative Savings Projection',
                     xaxis_title='Month',
@@ -1801,24 +1856,24 @@ def main():
                     height=400
                 )
                 st.plotly_chart(fig, use_container_width=True)
-            
+
             # Scenario analysis
             st.markdown("---")
             st.subheader("🎲 Scenario Analysis")
-            
+
             scenarios = {
                 'Conservative (40% efficiency)': 0.40,
                 'Moderate (60% efficiency)': 0.60,
                 'Optimistic (80% efficiency)': 0.80
             }
-            
+
             scenario_results = []
             for scenario_name, efficiency in scenarios.items():
                 hours_saved = projected_automatable_hours * efficiency
                 cost_saved = hours_saved * avg_hourly_rate
                 ai_cost = projected_automatable_hours * ai_cost_per_hour
                 net_savings = cost_saved - ai_cost
-                
+
                 scenario_results.append({
                     'Scenario': scenario_name,
                     'Hours Saved': hours_saved,
@@ -1827,7 +1882,7 @@ def main():
                     'Net Savings': net_savings,
                     'ROI (%)': (net_savings / ai_cost * 100) if ai_cost > 0 else 0
                 })
-            
+
             scenario_df = pd.DataFrame(scenario_results)
             
             # Display scenarios
@@ -1866,7 +1921,7 @@ def main():
                     height=400
                 )
         else:
-            st.warning("No 2025 data available for projections")
+            st.warning(f"No {proj_year} data available for projections")
     
     # TAB 6: Task Definitions
     with tab6:
